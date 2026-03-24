@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Trivox AI — Employee Cost Calculator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --blue: #2E61FE;
+      --cyan: #00F0FF;
+      --bg: #050508;
+      --card: rgba(255,255,255,0.04);
+      --card-solid: #0e0e12;
+      --border: rgba(0,240,255,0.25);
+      --border-dim: #1a1a1a;
+      --text: #E8E8E8;
+      --text-muted: #777;
+      --text-dim: #999;
+      --success: #22C55E;
+      --danger: #EF4444;
+      --warning: #F59E0B;
+      --gradient: linear-gradient(135deg, #2E61FE 0%, #00F0FF 100%);
+      --radius: 14px;
+      --radius-lg: 24px;
+      --radius-sm: 8px;
+    }
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html, body { height:100%; font-family:'Sora',system-ui,sans-serif; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+
+    #bgCanvas { position:fixed; inset:0; z-index:0; pointer-events:none; }
+
+    /* ── Top Bar ─────────────────────────────── */
+    .top-bar { position:fixed; top:0; left:0; width:100%; height:3px; background:#1a1a1a; z-index:100; }
+    .top-bar-fill { height:100%; background:var(--gradient); box-shadow:0 0 12px rgba(0,240,255,0.4); transition:width 0.6s cubic-bezier(0.22,1,0.36,1); border-radius:0 2px 2px 0; }
+
+    /* ── Shell ────────────────────────────────── */
+    .shell { min-height:100vh; display:flex; flex-direction:column; position:relative; z-index:1; }
+
+    /* ── Header ───────────────────────────────── */
+    .header { display:flex; align-items:center; justify-content:space-between; padding:18px 32px; position:relative; z-index:50; }
+    .logo-text { font-size:18px; font-weight:800; letter-spacing:-0.02em; }
+    .logo-text .t1 { color:#fff; }
+    .logo-text .t2 { background:var(--gradient); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .header-badge { font-size:10px; font-weight:600; color:var(--cyan); letter-spacing:0.06em; text-transform:uppercase; padding:5px 14px; border:1px solid rgba(0,240,255,0.15); border-radius:20px; background:rgba(0,240,255,0.04); }
+
+    /* ── Transitions ──────────────────────────── */
+    .view-enter { animation:slideIn 0.45s cubic-bezier(0.22,1,0.36,1) both; }
+    @keyframes slideIn { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+    /* ── Step 1: Company Info ─────────────────── */
+    .step-screen { flex:1; display:flex; align-items:center; justify-content:center; padding:40px 24px 60px; background:radial-gradient(ellipse at 50% 40%, rgba(46,97,254,0.12) 0%, rgba(0,240,255,0.05) 40%, transparent 70%); }
+    .step-card { width:100%; max-width:600px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:48px 44px; backdrop-filter:blur(16px); box-shadow:0 0 80px rgba(46,97,254,0.12), inset 0 1px 0 rgba(255,255,255,0.06); }
+    .step-title { font-size:1.6rem; font-weight:800; background:linear-gradient(135deg,#fff 60%,#00F0FF); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1.25; margin-bottom:8px; }
+    .step-sub { color:var(--text-muted); font-size:0.88rem; margin-bottom:32px; line-height:1.6; }
+
+    .field { margin-bottom:20px; }
+    .field:last-child { margin-bottom:0; }
+    .field label { display:block; font-size:11px; font-weight:600; color:#555; margin-bottom:6px; letter-spacing:0.04em; text-transform:uppercase; }
+    .field input, .field select { width:100%; background:rgba(0,0,0,0.4); border:1px solid rgba(0,240,255,0.2); border-radius:12px; padding:14px 18px; font-family:'Sora',sans-serif; font-size:14px; color:#fff; outline:none; transition:all 0.3s ease; -webkit-appearance:none; appearance:none; }
+    .field select { background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23777' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 16px center; padding-right:40px; cursor:pointer; }
+    .field select option { background:#111; color:#fff; }
+    .field input:focus, .field select:focus { border-color:rgba(0,240,255,0.7); box-shadow:0 0 0 3px rgba(0,240,255,0.1), 0 0 30px rgba(0,240,255,0.08); }
+    .field input::placeholder { color:#444; }
+
+    .btn-primary { width:100%; padding:16px; background:var(--gradient); border:none; border-radius:12px; font-family:'Sora',sans-serif; font-size:15px; font-weight:700; color:#fff; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 20px rgba(46,97,254,0.25); margin-top:28px; }
+    .btn-primary:hover { opacity:0.92; transform:translateY(-1px); box-shadow:0 8px 30px rgba(46,97,254,0.35); }
+    .btn-primary:disabled { opacity:0.3; cursor:not-allowed; transform:none; box-shadow:none; }
+
+    /* ── Step 2: Employees ────────────────────── */
+    .emp-screen { flex:1; padding:24px 24px 60px; }
+    .emp-header { max-width:900px; margin:0 auto 24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; }
+    .emp-header-left h2 { font-size:1.3rem; font-weight:800; background:linear-gradient(135deg,#fff 60%,#00F0FF); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .emp-header-left p { color:var(--text-muted); font-size:0.82rem; margin-top:4px; }
+
+    .salary-ticker { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 24px; text-align:center; min-width:200px; }
+    .salary-ticker .label { font-size:10px; font-weight:600; color:#555; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px; }
+    .salary-ticker .amount { font-size:1.5rem; font-weight:800; background:var(--gradient); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+
+    .emp-grid { max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+
+    .emp-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:32px; backdrop-filter:blur(16px); box-shadow:0 0 40px rgba(46,97,254,0.06); position:relative; }
+    .emp-card-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+    .emp-card-num { font-size:12px; font-weight:700; color:var(--cyan); text-shadow:0 0 12px rgba(0,240,255,0.4); }
+    .emp-remove { background:none; border:1px solid rgba(239,68,68,0.2); border-radius:8px; color:#666; font-size:16px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s; }
+    .emp-remove:hover { border-color:rgba(239,68,68,0.5); color:var(--danger); background:rgba(239,68,68,0.06); }
+
+    .emp-fields { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px; }
+
+    .tasks-label { font-size:11px; font-weight:600; color:#555; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:10px; }
+    .task-grid { display:flex; flex-wrap:wrap; gap:8px; }
+    .task-tile { padding:8px 14px; background:rgba(0,0,0,0.3); border:1px solid var(--border-dim); border-radius:10px; font-size:12px; font-weight:500; color:#888; cursor:pointer; transition:all 0.2s; user-select:none; }
+    .task-tile:hover { border-color:rgba(0,240,255,0.3); color:#aaa; }
+    .task-tile.active { background:rgba(0,240,255,0.08); border-color:rgba(0,240,255,0.5); color:var(--cyan); box-shadow:0 0 12px rgba(0,240,255,0.08); }
+
+    .btn-add { width:100%; max-width:900px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:8px; padding:14px; background:rgba(255,255,255,0.02); border:1px dashed rgba(0,240,255,0.2); border-radius:16px; font-family:'Sora',sans-serif; font-size:13px; font-weight:600; color:#555; cursor:pointer; transition:all 0.2s; }
+    .btn-add:hover { border-color:rgba(0,240,255,0.4); color:var(--cyan); background:rgba(0,240,255,0.03); }
+
+    .emp-footer { max-width:900px; margin:24px auto 0; }
+
+    /* ── Loading ──────────────────────────────── */
+    .loading-overlay { position:fixed; inset:0; z-index:200; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 24px; }
+    .scan-lines { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+    .scan-line { position:absolute; left:0; width:100%; height:1px; background:linear-gradient(90deg,transparent 0%,rgba(0,240,255,0.08) 50%,transparent 100%); animation:scanMove 3s ease-in-out infinite; }
+    .scan-line:nth-child(1) { top:20%; animation-delay:0s; }
+    .scan-line:nth-child(2) { top:45%; animation-delay:0.8s; }
+    .scan-line:nth-child(3) { top:70%; animation-delay:1.6s; }
+    @keyframes scanMove { 0%,100% { opacity:0; transform:translateX(-100%); } 50% { opacity:1; transform:translateX(100%); } }
+    .loading-pulse { width:80px; height:80px; border-radius:50%; position:relative; margin-bottom:40px; }
+    .loading-pulse::before, .loading-pulse::after { content:''; position:absolute; inset:0; border-radius:50%; border:2px solid transparent; }
+    .loading-pulse::before { border-top-color:var(--cyan); border-right-color:var(--cyan); animation:spin 1.2s linear infinite; }
+    .loading-pulse::after { border-bottom-color:var(--blue); border-left-color:var(--blue); animation:spin 1.2s linear infinite reverse; inset:8px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .loading-pulse .inner-dot { position:absolute; top:50%; left:50%; width:12px; height:12px; margin:-6px 0 0 -6px; border-radius:50%; background:var(--cyan); box-shadow:0 0 20px rgba(0,240,255,0.4); animation:pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity:0.5; transform:scale(0.8); } 50% { opacity:1; transform:scale(1.2); } }
+    .loading-status { font-size:1rem; font-weight:600; color:#fff; margin-bottom:8px; text-align:center; min-height:28px; position:relative; z-index:1; }
+    .loading-sub { font-size:13px; color:#444; text-align:center; position:relative; z-index:1; }
+    .loading-progress { width:200px; height:2px; background:var(--border-dim); border-radius:1px; margin-top:32px; overflow:hidden; position:relative; z-index:1; }
+    .loading-progress-fill { height:100%; background:var(--gradient); border-radius:1px; transition:width 0.8s ease; }
+
+    /* ── Error ────────────────────────────────── */
+    .error-screen { flex:1; display:flex; align-items:center; justify-content:center; padding:40px 24px; }
+    .error-card { text-align:center; max-width:440px; background:var(--card); backdrop-filter:blur(24px); border:1px solid var(--border); border-radius:var(--radius-lg); padding:44px 36px; }
+    .error-icon { width:52px; height:52px; border-radius:50%; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:22px; color:var(--danger); }
+    .error-card h2 { font-size:1.1rem; font-weight:700; margin-bottom:8px; }
+    .error-card p { color:var(--text-muted); font-size:0.88rem; margin-bottom:24px; line-height:1.6; }
+
+    /* ── REPORT DASHBOARD ─────────────────────── */
+    .report { max-width:900px; width:100%; margin:0 auto; padding:40px 24px 60px; }
+
+    .report-hero { text-align:center; margin-bottom:40px; animation:fadeUp 0.6s cubic-bezier(0.22,1,0.36,1) both; }
+    .hero-waste { font-size:clamp(2rem,5vw,3rem); font-weight:800; color:var(--warning); line-height:1.1; margin-bottom:6px; }
+    .hero-waste-label { font-size:0.92rem; color:var(--text-muted); margin-bottom:20px; }
+    .hero-savings { font-size:clamp(1.5rem,4vw,2.2rem); font-weight:800; color:var(--success); line-height:1.1; margin-bottom:4px; }
+    .hero-savings-label { font-size:0.88rem; color:var(--text-muted); }
+
+    .kpi-row { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:36px; animation:fadeUp 0.6s 0.15s cubic-bezier(0.22,1,0.36,1) both; }
+    .kpi { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:22px 18px; text-align:center; transition:border-color 0.3s, box-shadow 0.3s; }
+    .kpi:hover { border-color:rgba(46,97,254,0.4); box-shadow:0 0 30px rgba(46,97,254,0.06); }
+    .kpi-val { font-size:1.6rem; font-weight:800; background:var(--gradient); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:4px; }
+    .kpi-lbl { font-size:10.5px; font-weight:500; color:var(--text-muted); letter-spacing:0.02em; }
+
+    /* Section Title */
+    .sec-title { font-size:0.92rem; font-weight:700; color:var(--text); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .sec-title .dot { width:8px; height:8px; border-radius:50%; background:var(--gradient); }
+
+    /* Employee Breakdown */
+    .emp-section { margin-bottom:36px; animation:fadeUp 0.6s 0.3s cubic-bezier(0.22,1,0.36,1) both; }
+    .emp-result { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; margin-bottom:12px; }
+    .emp-result-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
+    .emp-result-role { font-size:14px; font-weight:700; }
+    .emp-result-savings { font-size:13px; font-weight:700; color:var(--success); }
+    .emp-pct-bar { width:100%; height:6px; background:rgba(255,255,255,0.04); border-radius:3px; overflow:hidden; margin-bottom:10px; }
+    .emp-pct-fill { height:100%; border-radius:3px; background:var(--gradient); transition:width 1s cubic-bezier(0.22,1,0.36,1); }
+    .emp-pct-label { font-size:11px; color:var(--cyan); font-weight:600; margin-bottom:10px; }
+    .emp-tasks-row { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+    .emp-task-tag { padding:3px 10px; border-radius:20px; font-size:10px; font-weight:500; background:rgba(0,240,255,0.06); border:1px solid rgba(0,240,255,0.18); color:var(--cyan); }
+    .emp-rec { font-size:12.5px; color:var(--text-muted); line-height:1.6; font-style:italic; }
+
+    /* Top Automations */
+    .auto-section { margin-bottom:36px; animation:fadeUp 0.6s 0.45s cubic-bezier(0.22,1,0.36,1) both; }
+    .auto-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; margin-bottom:12px; transition:border-color 0.3s; }
+    .auto-card:hover { border-color:rgba(46,97,254,0.3); }
+    .auto-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:8px; }
+    .auto-name { font-size:14px; font-weight:700; }
+    .auto-badges { display:flex; gap:6px; }
+    .badge { padding:3px 10px; border-radius:20px; font-size:10px; font-weight:600; }
+    .badge-easy { background:rgba(34,197,94,0.1); color:#22C55E; border:1px solid rgba(34,197,94,0.25); }
+    .badge-medium { background:rgba(245,158,11,0.1); color:#F59E0B; border:1px solid rgba(245,158,11,0.25); }
+    .badge-complex { background:rgba(239,68,68,0.1); color:#EF4444; border:1px solid rgba(239,68,68,0.25); }
+    .auto-meta { font-size:12px; color:var(--cyan); font-weight:600; margin-bottom:4px; }
+    .auto-roles { font-size:12px; color:var(--text-muted); }
+
+    /* Summary */
+    .summary-section { margin-bottom:36px; animation:fadeUp 0.6s 0.55s cubic-bezier(0.22,1,0.36,1) both; }
+    .summary-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; font-size:14px; color:var(--text-dim); line-height:1.75; }
+
+    /* CTA */
+    .cta-section { text-align:center; padding:40px 24px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); animation:fadeUp 0.6s 0.65s cubic-bezier(0.22,1,0.36,1) both; }
+    .cta-section h3 { font-size:1.15rem; font-weight:700; margin-bottom:8px; }
+    .cta-section p { color:var(--text-muted); font-size:0.88rem; margin-bottom:24px; line-height:1.6; }
+    .cta-btn { display:inline-flex; align-items:center; gap:10px; padding:15px 36px; background:var(--gradient); border:none; border-radius:var(--radius-sm); font-family:'Sora',sans-serif; font-size:0.95rem; font-weight:700; color:#fff; cursor:pointer; text-decoration:none; transition:opacity 0.2s,transform 0.2s,box-shadow 0.2s; box-shadow:0 4px 20px rgba(46,97,254,0.3); }
+    .cta-btn:hover { opacity:0.92; transform:translateY(-2px); box-shadow:0 8px 30px rgba(46,97,254,0.4); }
+
+    /* ── Footer ───────────────────────────────── */
+    .footer { text-align:center; padding:20px 24px; font-size:10.5px; color:#333; position:relative; z-index:1; }
+
+    /* ── Responsive ───────────────────────────── */
+    @media (max-width:700px) {
+      .header { padding:16px 18px; }
+      .step-card { padding:36px 24px; }
+      .emp-fields { grid-template-columns:1fr; }
+      .emp-card { padding:24px 20px; }
+      .kpi-row { grid-template-columns:1fr; }
+      .report { padding:24px 14px 40px; }
+      .header-badge { display:none; }
+      .emp-header { flex-direction:column; align-items:flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar"><div class="top-bar-fill" id="topBar" style="width:0%"></div></div>
+  <canvas id="bgCanvas"></canvas>
+  <div class="shell">
+    <header class="header">
+      <span class="logo-text"><span class="t1">Trivox </span><span class="t2">AI</span></span>
+      <div class="header-badge">Employee Cost Calculator</div>
+    </header>
+    <div id="app"></div>
+    <div class="footer">Trivox AI &middot; Employee Cost Calculator &middot; Confidential</div>
+  </div>
+
+<script>
+const TASKS = [
+  'Data Entry & Reporting',
+  'Lead Follow-up & Outreach',
+  'Scheduling & Reminders',
+  'Client Onboarding',
+  'Invoice & Payment Processing',
+  'Social Media & Content',
+  'Customer Support & FAQs',
+  'Document Creation',
+  'Research & Analysis',
+  'Internal Communication',
+];
+
+const INDUSTRIES = ['Real Estate','Financial Services','Insurance','Healthcare','Legal','Marketing Agency','E-commerce','Other'];
+
+const LOADING_MESSAGES = [
+  'Scanning employee tasks',
+  'Identifying automation opportunities',
+  'Calculating replacement costs',
+  'Building your savings report',
+];
+
+// ── State ──────────────────────────────
+const state = {
+  view: 'company', // company | employees | loading | report | error
+  company: { name: '', industry: '', revenue: '' },
+  employees: [{ role: '', salary: '', tasks: [] }],
+  report: null,
+};
+
+const app = document.getElementById('app');
+const topBar = document.getElementById('topBar');
+
+function setProgress(pct) { topBar.style.width = pct + '%'; }
+
+// ── Step 1: Company Info ───────────────
+function renderCompany() {
+  state.view = 'company';
+  setProgress(0);
+  app.innerHTML = `
+    <div class="step-screen">
+      <div class="step-card view-enter">
+        <div class="step-title">Tell us about your company</div>
+        <div class="step-sub">We'll use this to benchmark automation opportunities in your industry.</div>
+        <div class="field">
+          <label>Company Name</label>
+          <input type="text" id="cName" placeholder="Acme Corp" value="${esc(state.company.name)}" />
+        </div>
+        <div class="field">
+          <label>Industry</label>
+          <select id="cIndustry">
+            <option value="">Select your industry</option>
+            ${INDUSTRIES.map(i => `<option value="${i}" ${state.company.industry === i ? 'selected' : ''}>${i}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Total Monthly Revenue</label>
+          <input type="text" id="cRevenue" placeholder="$50,000" value="${esc(state.company.revenue)}" inputmode="numeric" />
+        </div>
+        <button class="btn-primary" onclick="goToEmployees()">Continue to Team Setup</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('cRevenue').addEventListener('input', function() {
+    let v = this.value.replace(/[^0-9]/g, '');
+    if (v) this.value = '$' + Number(v).toLocaleString();
+    else this.value = '';
+  });
+}
+
+function goToEmployees() {
+  const name = document.getElementById('cName').value.trim();
+  const industry = document.getElementById('cIndustry').value;
+  const revenue = document.getElementById('cRevenue').value.trim();
+  if (!name || !industry || !revenue) {
+    ['cName','cIndustry','cRevenue'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el.value.trim()) { el.style.borderColor = 'rgba(239,68,68,0.5)'; el.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.08)'; }
+    });
+    return;
+  }
+  state.company = { name, industry, revenue };
+  renderEmployees();
+}
+
+// ── Step 2: Employees ──────────────────
+function renderEmployees() {
+  state.view = 'employees';
+  setProgress(50);
+  const totalSalary = state.employees.reduce((s, e) => s + (parseNum(e.salary) || 0), 0);
+
+  app.innerHTML = `
+    <div class="emp-screen view-enter">
+      <div class="emp-header">
+        <div class="emp-header-left">
+          <h2>Add Your Team</h2>
+          <p>Add each employee and select the tasks they perform daily.</p>
+        </div>
+        <div class="salary-ticker">
+          <div class="label">Total Annual Cost</div>
+          <div class="amount">$${totalSalary.toLocaleString()}</div>
+        </div>
+      </div>
+
+      <div class="emp-grid" id="empGrid">
+        ${state.employees.map((e, i) => empCardHTML(e, i)).join('')}
+      </div>
+
+      ${state.employees.length < 10 ? `
+        <button class="btn-add" onclick="addEmployee()" style="margin-top:16px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Another Employee
+        </button>
+      ` : ''}
+
+      <div class="emp-footer">
+        <div style="display:flex;gap:12px">
+          <button class="btn-primary" style="flex:0 0 auto;background:transparent;border:1px solid var(--border-dim);color:#555;box-shadow:none;width:auto;padding:16px 24px" onclick="renderCompany()">Back</button>
+          <button class="btn-primary" id="analyzeBtn" onclick="submitAnalysis()" ${state.employees.length === 0 ? 'disabled' : ''}>Analyze with AI</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function empCardHTML(emp, idx) {
+  const num = String(idx + 1).padStart(2, '0');
+  return `
+    <div class="emp-card">
+      <div class="emp-card-head">
+        <div class="emp-card-num">Employee ${num}</div>
+        ${state.employees.length > 1 ? `<button class="emp-remove" onclick="removeEmployee(${idx})">&times;</button>` : ''}
+      </div>
+      <div class="emp-fields">
+        <div class="field">
+          <label>Role / Title</label>
+          <input type="text" placeholder="e.g. Office Manager" value="${esc(emp.role)}" onchange="updateEmp(${idx},'role',this.value)" />
+        </div>
+        <div class="field">
+          <label>Annual Salary ($)</label>
+          <input type="text" placeholder="$55,000" value="${emp.salary ? '$' + Number(parseNum(emp.salary)).toLocaleString() : ''}" oninput="formatSalary(this)" onchange="updateEmp(${idx},'salary',this.value)" inputmode="numeric" />
+        </div>
+      </div>
+      <div class="tasks-label">Tasks They Perform (select all that apply)</div>
+      <div class="task-grid">
+        ${TASKS.map(t => `<div class="task-tile ${emp.tasks.includes(t) ? 'active' : ''}" onclick="toggleTask(${idx},'${t.replace(/'/g, "\\'")}',this)">${t}</div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function updateEmp(idx, field, val) {
+  state.employees[idx][field] = val;
+  // Update salary ticker live
+  const totalSalary = state.employees.reduce((s, e) => s + (parseNum(e.salary) || 0), 0);
+  const ticker = document.querySelector('.salary-ticker .amount');
+  if (ticker) ticker.textContent = '$' + totalSalary.toLocaleString();
+}
+
+function toggleTask(idx, task, el) {
+  const tasks = state.employees[idx].tasks;
+  const i = tasks.indexOf(task);
+  if (i >= 0) { tasks.splice(i, 1); el.classList.remove('active'); }
+  else { tasks.push(task); el.classList.add('active'); }
+}
+
+function formatSalary(el) {
+  let v = el.value.replace(/[^0-9]/g, '');
+  if (v) el.value = '$' + Number(v).toLocaleString();
+  else el.value = '';
+}
+
+function addEmployee() {
+  if (state.employees.length >= 10) return;
+  state.employees.push({ role: '', salary: '', tasks: [] });
+  renderEmployees();
+}
+
+function removeEmployee(idx) {
+  state.employees.splice(idx, 1);
+  renderEmployees();
+}
+
+function parseNum(s) {
+  if (!s) return 0;
+  return parseInt(String(s).replace(/[^0-9]/g, ''), 10) || 0;
+}
+
+// ── Submit ─────────────────────────────
+async function submitAnalysis() {
+  // Validate
+  let valid = true;
+  for (const e of state.employees) {
+    if (!e.role.trim() || !parseNum(e.salary) || e.tasks.length === 0) { valid = false; break; }
+  }
+  if (!valid) { alert('Please fill in role, salary, and select at least one task for each employee.'); return; }
+
+  renderLoading();
+
+  try {
+    const payload = {
+      company: state.company,
+      employees: state.employees.map(e => ({
+        role: e.role.trim(),
+        annualSalary: parseNum(e.salary),
+        tasks: e.tasks,
+      })),
+    };
+
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Server error ${res.status}`);
+    }
+
+    state.report = await res.json();
+    renderReport();
+  } catch (err) {
+    renderError(err.message);
+  }
+}
+
+// ── Loading ────────────────────────────
+function renderLoading() {
+  state.view = 'loading';
+  setProgress(0);
+  app.innerHTML = `
+    <div class="loading-overlay view-enter">
+      <div class="scan-lines"><div class="scan-line"></div><div class="scan-line"></div><div class="scan-line"></div></div>
+      <div class="loading-pulse"><div class="inner-dot"></div></div>
+      <div class="loading-status" id="loadStatus">${LOADING_MESSAGES[0]}</div>
+      <div class="loading-sub">Analyzing ${state.employees.length} employee${state.employees.length > 1 ? 's' : ''} across ${state.company.industry}</div>
+      <div class="loading-progress"><div class="loading-progress-fill" id="loadFill" style="width:0%"></div></div>
+    </div>
+  `;
+  let idx = 0;
+  window._loadInt = setInterval(() => {
+    idx++;
+    if (idx < LOADING_MESSAGES.length) {
+      document.getElementById('loadStatus').textContent = LOADING_MESSAGES[idx];
+      document.getElementById('loadFill').style.width = (idx / LOADING_MESSAGES.length * 100) + '%';
+    } else { document.getElementById('loadFill').style.width = '95%'; clearInterval(window._loadInt); }
+  }, 2500);
+}
+
+// ── Error ──────────────────────────────
+function renderError(msg) {
+  state.view = 'error';
+  if (window._loadInt) clearInterval(window._loadInt);
+  app.innerHTML = `
+    <div class="error-screen view-enter">
+      <div class="error-card">
+        <div class="error-icon">!</div>
+        <h2>Something went wrong</h2>
+        <p>${esc(msg)}</p>
+        <button class="btn-primary" style="margin-bottom:12px" onclick="submitAnalysis()">Try Again</button>
+        <button class="btn-primary" style="background:transparent;border:1px solid var(--border-dim);color:#555;box-shadow:none" onclick="renderEmployees()">Back</button>
+      </div>
+    </div>
+  `;
+}
+
+// ── Report ─────────────────────────────
+function renderReport() {
+  state.view = 'report';
+  if (window._loadInt) clearInterval(window._loadInt);
+  setProgress(100);
+
+  const r = state.report;
+
+  app.innerHTML = `
+    <div class="report">
+      <!-- Hero -->
+      <div class="report-hero">
+        <div class="hero-waste">$${fmtNum(r.automationOpportunityCost || 0)}</div>
+        <div class="hero-waste-label">You're paying this annually for tasks AI can do</div>
+        <div style="width:60px;height:1px;background:var(--border);margin:20px auto"></div>
+        <div class="hero-savings">$${fmtNum(r.annualSavings || 0)}</div>
+        <div class="hero-savings-label">Trivox can recover this for your business</div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="kpi-val">$${fmtNum(r.totalAnnualSalaryCost || 0)}</div>
+          <div class="kpi-lbl">Total Salary Cost</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val">${r.automationPercentage || 0}%</div>
+          <div class="kpi-lbl">Automatable Work</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val">${r.roiMonths || 0} mo</div>
+          <div class="kpi-lbl">ROI Payback Period</div>
+        </div>
+      </div>
+
+      <!-- Employee Breakdown -->
+      <div class="emp-section">
+        <div class="sec-title"><div class="dot"></div> Employee Breakdown</div>
+        ${(r.employees || []).map(e => `
+          <div class="emp-result">
+            <div class="emp-result-head">
+              <span class="emp-result-role">${esc(e.role)}</span>
+              <span class="emp-result-savings">Save $${fmtNum(e.potentialSavings || 0)}/yr</span>
+            </div>
+            <div class="emp-pct-bar"><div class="emp-pct-fill" data-w="${e.automationPercentage || 0}" style="width:0%"></div></div>
+            <div class="emp-pct-label">${e.automationPercentage || 0}% of work is automatable</div>
+            ${(e.automatableTasks || []).length ? `<div class="emp-tasks-row">${e.automatableTasks.map(t => `<span class="emp-task-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+            <div class="emp-rec">"${esc(e.recommendation || '')}"</div>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- Top Automations -->
+      <div class="auto-section">
+        <div class="sec-title"><div class="dot"></div> Top Automation Opportunities</div>
+        ${(r.topAutomations || []).map(a => `
+          <div class="auto-card">
+            <div class="auto-head">
+              <span class="auto-name">${esc(a.name)}</span>
+              <div class="auto-badges">
+                <span class="badge badge-${(a.implementationDifficulty || '').toLowerCase() === 'easy' ? 'easy' : (a.implementationDifficulty || '').toLowerCase() === 'medium' ? 'medium' : 'complex'}">${esc(a.implementationDifficulty)}</span>
+              </div>
+            </div>
+            <div class="auto-meta">Saves $${fmtNum(a.annualSavings || 0)}/yr &nbsp;·&nbsp; ${esc(a.timeToImplement || '')}</div>
+            <div class="auto-roles">Affects: ${(a.affectedRoles || []).map(r => esc(r)).join(', ')}</div>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- Summary -->
+      <div class="summary-section">
+        <div class="sec-title"><div class="dot"></div> Executive Summary</div>
+        <div class="summary-box">${esc(r.executiveSummary || '')}</div>
+      </div>
+
+      <!-- CTA -->
+      <div class="cta-section">
+        <h3>Ready to Cut These Costs?</h3>
+        <p>Book a free strategy call with Trivox AI. We'll build your custom automation roadmap and show you exactly where to start.</p>
+        <a class="cta-btn" href="mailto:daniel@trivox.ca?subject=Employee%20Cost%20Analysis%20-%20${encodeURIComponent(state.company.name)}&body=${encodeURIComponent('Hi Daniel,\n\nI just ran the Employee Cost Calculator for ' + state.company.name + ' and found $' + fmtNum(r.annualSavings || 0) + ' in potential annual savings. I\'d love to book a strategy call.\n\nBest,\n')}">
+          Book Your Free Strategy Call
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+    </div>
+  `;
+
+  // Animate bars
+  setTimeout(() => {
+    document.querySelectorAll('.emp-pct-fill').forEach(el => { el.style.width = el.dataset.w + '%'; });
+  }, 300);
+}
+
+// ── Utilities ──────────────────────────
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function fmtNum(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return n.toLocaleString();
+}
+
+// ── Particles ──────────────────────────
+(function() {
+  const canvas = document.getElementById('bgCanvas');
+  const ctx = canvas.getContext('2d');
+  let w, h, particles = [];
+  function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+  function init() {
+    particles = [];
+    const count = Math.floor((w * h) / 10000);
+    for (let i = 0; i < count; i++) {
+      particles.push({ x: Math.random()*w, y: Math.random()*h, vx: (Math.random()-0.5)*0.3, vy: (Math.random()-0.5)*0.3, r: Math.random()*1.2+0.3, a: Math.random()*0.19+0.06 });
+    }
+  }
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+    particles.forEach((p, i) => {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
+      if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = (i % 2 === 0) ? `rgba(46,97,254,${p.a})` : `rgba(0,240,255,${p.a})`;
+      ctx.fill();
+    });
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i+1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
+        const dist = dx*dx + dy*dy;
+        if (dist < 12000) { ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y); ctx.strokeStyle = `rgba(46,97,254,${0.06*(1-dist/12000)})`; ctx.lineWidth = 0.5; ctx.stroke(); }
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  resize(); init(); draw();
+  window.addEventListener('resize', () => { resize(); init(); });
+})();
+
+// ── Boot ───────────────────────────────
+renderCompany();
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "trivox-employee-cost-calculator",
+  "version": "1.0.0",
+  "description": "TRIVOX AI — Employee Cost Calculator",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.37.0"
+  }
+}
